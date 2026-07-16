@@ -1,98 +1,123 @@
-# Project Management Backend
+# ProjectHub - Backend & Project Documentation
 
-This is the backend for the Internal Project Management System. It is built using Node.js, Express, MongoDB, and Redis. It also uses Socket.io for real-time features.
+This repository houses the backend services for **ProjectHub**, a Real-Time Internal Project Management System. The project is split into frontend and backend repositories. This document serves as the primary documentation hub for the entire project's deliverables.
 
-## Prerequisites
+## Deliverables Checklist
+- [x] **GitHub Repository (Backend):** [https://github.com/shubham465/ProjectHub-BE](https://github.com/shubham465/ProjectHub-BE)
+- [x] **GitHub Repository (Frontend):** [https://github.com/shubham465/ProjectHub-FE](https://github.com/shubham465/ProjectHub-FE)
+- [x] **Deployed Backend URL:** [https://projecthub-be.onrender.com](https://projecthub-be.onrender.com)
+- [x] **Deployed Frontend URL:** [https://project-hub-fe.vercel.app](https://project-hub-fe.vercel.app)
+- [x] **Planning & Design Documents:** See `CONTEXT.md` in the root repository.
+- [ ] **Loom Video:** (Out of Scope)
 
-Ensure you have the following installed on your machine:
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [MongoDB](https://www.mongodb.com/) (running locally or a cloud URI)
-- [Redis](https://redis.io/) (running locally or a cloud URL)
+---
 
-### Running Services Locally (Optional)
+## AI Usage Declaration (Mandatory)
+AI (Antigravity/Gemini) was used as a pair-programming assistant to accelerate the generation of boilerplate code (such as CRUD routes and React components), assist with configuring the Socket.io integration, and refine the deployment setup. All AI-generated code was actively reviewed, tested, and is fully understood by the developer.
 
-If you need to run MongoDB and Redis locally, the easiest way is using Docker:
+---
 
-```bash
-# Run MongoDB locally
-docker run -d --name local-mongo -p 27017:27017 mongo
+## Architecture Overview
+ProjectHub is built on a standard MERN stack architecture (MongoDB, Express, React, Node.js), separated into two distinct repositories to isolate concerns and allow independent deployments.
 
-# Run Redis locally
-docker run -d --name local-redis -p 6379:6379 redis
-```
+- **Frontend:** A React application utilizing Context API/React state for local state management, styled with Tailwind CSS, and hosted on Vercel for fast, edge-cached delivery.
+- **Backend:** A Node.js/Express application acting as a RESTful API and WebSocket server, hosted on Render.
+- **Database:** MongoDB (Atlas) for persistent storage.
+- **Cache:** Redis is utilized to cache frequently accessed data, like user sessions, to minimize database hits.
+- **Real-time Sync:** Socket.IO establishes a persistent connection between clients and the backend to broadcast task updates in real-time.
 
-Alternatively, on macOS you can use Homebrew:
-```bash
-brew install redis mongodb-community
-brew services start redis
-brew services start mongodb-community
-```
+---
 
-## Getting Started
+## Design Decisions & Trade-offs
+1. **Hosting Strategy:** We deployed the frontend to Vercel and the backend to Render. Render was chosen for the backend to support long-lived WebSocket connections (Socket.IO), which are often restricted or unsupported in serverless environments like Vercel functions.
+2. **Real-time Synchronization:** We utilized `Socket.io` for instant task updates instead of HTTP polling. While this adds complexity to the infrastructure and deployment, it prioritizes cross-user real-time state consistency, which is crucial for a project management tool.
+3. **Performance Optimization:** We implemented Redis for user session caching to minimize repetitive MongoDB queries, effectively trading a slightly more complex infrastructure setup for faster API response times.
+4. **Security/Authentication:** We rely on `HttpOnly` cookies for JWT transmission instead of `localStorage` to mitigate XSS vulnerabilities, ensuring secure authentication.
 
-Follow these steps to set up and run the backend server:
+---
 
-### 1. Install Dependencies
+## API Reference
 
-Navigate to the `backend` directory and install the necessary npm packages:
+### Auth
+- `POST /api/auth/login` - Authenticate a user and set HttpOnly cookie.
+- `GET /api/auth/me` - Retrieve the currently authenticated user.
+- `POST /api/auth/logout` - Clear authentication cookies and Redis cache.
 
-```bash
-cd backend
-npm install
-```
+### Users
+- `GET /api/users/` - List all users.
+- `POST /api/users/` - Create a new user.
+- `PUT /api/users/:id` - Update an existing user.
 
-### 2. Configure Environment Variables
+### Projects
+- `POST /api/projects/` - Create a new project (Admin only).
+- `GET /api/projects/` - List all projects for the authenticated user.
+- `GET /api/projects/:id` - Retrieve a specific project.
+- `PUT /api/projects/:id` - Update a project (Admin only).
 
-The application requires several environment variables to run properly.
+### Tasks
+- `GET /api/tasks/` - List tasks (filterable by project).
+- `POST /api/tasks/` - Create a new task in a project.
+- `PATCH /api/tasks/:id` - Update a task's status or details.
+- `DELETE /api/tasks/:id` - Delete a task.
 
-1. Create a `.env` file in the root of the `backend` directory:
+---
+
+## Socket Events Reference
+
+**Client Emits (to Server):**
+- `JOIN_PROJECT_ROOM` (Payload: `{ projectId }`) - Join a specific project's WebSocket room.
+- `LEAVE_PROJECT_ROOM` (Payload: `{ projectId }`) - Leave a specific project's WebSocket room.
+
+**Server Emits (to Client in Room):**
+- `TASK_CREATED` (Payload: `{ task }`) - Broadcasted when a new task is created in the project.
+- `TASK_UPDATED` (Payload: `{ task }`) - Broadcasted when a task's details or status is changed.
+- `TASK_DELETED` (Payload: `{ task }`) - Broadcasted when a task is removed.
+
+---
+
+## Local Setup (Backend)
+
+1. **Clone the repository:**
    ```bash
-   cp .env.example .env
+   git clone https://github.com/shubham465/ProjectHub-BE.git
+   cd ProjectHub-BE
    ```
-2. Open the `.env` file and verify/update the values. The default `.env.example` looks like this:
+
+2. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Variables:**
+   Create a `.env` file in the root directory:
    ```env
-   MONGO_URI=mongodb://localhost:27017/project_management
-   REDIS_URL=redis://localhost:6379
-   JWT_SECRET=your_super_secret_key_change_in_production
-   JWT_EXPIRES_IN=7d
    PORT=5000
+   MONGO_URI=your_mongodb_connection_string
+   REDIS_URL=your_redis_connection_string
+   JWT_SECRET=your_jwt_secret
+   JWT_EXPIRES_IN=7d
+   CLIENT_ORIGIN=http://localhost:5173
    NODE_ENV=development
    ```
-   *Make sure MongoDB and Redis are running at the URLs provided in your `.env` file.*
 
-### 3. Start the Server
+4. **Run the Development Server:**
+   ```bash
+   npm run dev
+   ```
 
-You can start the server in two ways:
-
-**Development Mode** (uses `--watch` to automatically restart the server on file changes):
-```bash
-npm run dev
-```
-
-**Production Mode**:
-```bash
-npm start
-```
-
-If everything is configured correctly, you should see logs indicating that the server is running and successfully connected to MongoDB and Redis.
-
-## Testing
-
-To run the automated tests using Jest:
-
-```bash
-npm test
-```
+5. **Testing:**
+   To run automated tests using Jest:
+   ```bash
+   npm test
+   ```
 
 ## Deployment on Render
-
-When deploying this backend to [Render](https://render.com/), you must configure the following **Environment Variables** in your Render dashboard:
-
+When deploying this backend to [Render](https://render.com/), configure the following Environment Variables in your Render dashboard:
 - `MONGO_URI`: The connection string to your production MongoDB Atlas cluster.
-- `REDIS_URL`: The connection string to your production Upstash Redis instance (use the `rediss://` format if TLS is required).
+- `REDIS_URL`: The connection string to your production Redis instance.
 - `JWT_SECRET`: A strong, randomly generated secret for signing JSON Web Tokens.
 - `JWT_EXPIRES_IN`: Duration for the JWT (e.g., `7d` or `24h`).
-- `CLIENT_ORIGIN`: The URL of your deployed frontend (e.g., `https://projecthub-fe.vercel.app`). This is critical for CORS.
+- `CLIENT_ORIGIN`: The URL of your deployed frontend (e.g., `https://project-hub-fe.vercel.app`). This is critical for CORS.
 - `NODE_ENV`: Set to `production`.
 
-*Note: You do not need to provide a `PORT` variable manually on Render, as Render will automatically inject it and the application will listen to `process.env.PORT`.*
+*Note: You do not need to provide a `PORT` variable manually on Render, as Render will automatically inject it.*
